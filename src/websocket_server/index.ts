@@ -1,8 +1,10 @@
-import ws, { WebSocket } from "ws";
-import Player from "./player";
-import Room from "./room";
-import RoomsController from "./roomsController";
-import { msgFromWSSHandler } from "./util";
+import ws, { WebSocket } from 'ws';
+import Game from './game';
+import { Connection, Winner } from './interfaces';
+import Player from './player';
+import Room from './room';
+import RoomsController from './roomsController';
+import { msgFromWSSHandler } from './util';
 
 declare module 'ws' {
   export interface WebSocket extends ws {
@@ -10,21 +12,11 @@ declare module 'ws' {
   }
 }
 
-export interface Connection {
-  player: Player;
-  ws: WebSocket;
-  wsId: number;
-}
-
-interface Winner {
-  name: string;
-  wins: number;
-}
-
 const connections = new Set<Connection>();
 const roomsController = new RoomsController(connections);
 const players: Player[] = [];
 const winners: Winner[] = [];
+const games: Game[] = [];
 
 let wsIdx = 0;
 let playerIdx = 0;
@@ -100,21 +92,42 @@ const connectionHandler = (ws: WebSocket) => {
         });
         roomsController.addUser(roomId, name, id);
         const oppId = roomsController.getCreatorId(roomId);
-        const gameData = {
+        const gameUserData = {
           idGame: gameIdx,
           idPlayer: id,
         }
+        const gameOppData = {
+          idGame: gameIdx,
+          idPlayer: oppId,
+        }
         connections.forEach((conn) => {
-          if (conn.player.playerId === id || conn.player.playerId === oppId) {
+          if (conn.player.playerId === id) {
             conn.ws.send(msgFromWSSHandler('update_room', roomsController.rooms));
-            conn.ws.send(msgFromWSSHandler('create_game', gameData));
+            conn.ws.send(msgFromWSSHandler('create_game', gameUserData));
+          }
+
+          if (conn.player.playerId === oppId) {
+            conn.ws.send(msgFromWSSHandler('update_room', roomsController.rooms));
+            conn.ws.send(msgFromWSSHandler('create_game', gameOppData));
           }
         });
+        games.push(new Game(gameIdx));
         const roomsUpdated = roomsController.rooms.filter((room) => room.roomId !== roomId);
         roomsController.rooms = roomsUpdated;
         gameIdx += 1;
         break;
       case 'add_ships':
+        const gameId = msgData.gameId;
+        const playerId = msgData.indexPlayer;
+        const ships = msgData.ships;
+        const game = games.find((game) => game.gameId === gameId);
+        game?.addShips(playerId, ships);
+        connections.forEach((conn) => {
+          if (conn.player.playerId === playerId) {
+            conn.ws.send(msgFromWSSHandler('start_game', { ships, currentPlayerIndex: playerId}));
+          }
+        });
+        console.log(game);
         break;
       case 'start_game':
         break;

@@ -1,7 +1,4 @@
-interface RoomPlayer {
-  name: string;
-  playerId: number;
-}
+import { RoomPlayer, Ship } from './interfaces';
 
 export default class Room {
   roomId: number;
