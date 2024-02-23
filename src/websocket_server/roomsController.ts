@@ -2,11 +2,9 @@ import { Connection } from './interfaces';
 import Room from './room';
 
 export default class RoomsController {
-  connections: Set<Connection>;
   rooms: Room[];
 
   constructor(connections: Set<Connection>) {
-    this.connections = connections;
     this.rooms = [];
   }
 
