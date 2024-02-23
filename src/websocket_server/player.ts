@@ -9,4 +9,3 @@ export default class Player {
     this.playerId = playerId;
   }
 }
-

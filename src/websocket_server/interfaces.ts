@@ -9,7 +9,6 @@ export interface RoomPlayer {
 export interface Connection {
   player: Player;
   ws: WebSocket;
-  wsId: number;
 }
 
 export interface Winner {
@@ -21,13 +20,17 @@ export interface Ship {
   position: {
     x: number;
     y: number;
-  },
+  };
   direction: boolean;
   length: number;
-  type: "small"|"medium"|"large"|"huge",
+  type: 'small' | 'medium' | 'large' | 'huge';
+  shipId: number;
 }
 
-export type GameBoard = {
+export type Gameboard = {
   currentPlayerIndex: number;
   ships: Ship[];
-}
+  openPositions: string[];
+  remainingPositions: string[];
+  killEnemyShipsCount: number;
+};

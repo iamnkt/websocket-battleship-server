@@ -1,4 +1,4 @@
-import { Connection, Ship } from './interfaces';
+import { Connection } from './interfaces';
 import Room from './room';
 
 export default class RoomsController {

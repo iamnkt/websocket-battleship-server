@@ -1,4 +1,4 @@
-import { RoomPlayer, Ship } from './interfaces';
+import { RoomPlayer } from './interfaces';
 
 export default class Room {
   roomId: number;
