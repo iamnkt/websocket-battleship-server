@@ -22,4 +22,8 @@ export default class RoomsController {
     const user = this.rooms.find((room) => room.roomId === roomId)?.roomUsers[0].playerId;
     return user;
   }
+
+  deleteRoom(roomId: number) {
+    this.rooms = this.rooms.filter((room) => room.roomId !== roomId);
+  }
 }

@@ -2,11 +2,13 @@ import { Gameboard, Ship } from './interfaces';
 import { startPositions } from './util';
 export default class Game {
   gameId: number;
+  roomId: number;
   gameBoards: Gameboard[];
   currentTurn: number;
 
-  constructor(gameId: number) {
+  constructor(gameId: number, roomId: number) {
     this.gameId = gameId;
+    this.roomId = roomId;
     this.gameBoards = [];
     this.currentTurn = -1;
   }
