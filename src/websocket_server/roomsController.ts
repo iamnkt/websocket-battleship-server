@@ -1,10 +1,9 @@
-import { Connection } from './interfaces';
 import Room from './room';
 
 export default class RoomsController {
   rooms: Room[];
 
-  constructor(connections: Set<Connection>) {
+  constructor() {
     this.rooms = [];
   }
 
@@ -21,7 +20,11 @@ export default class RoomsController {
     return user;
   }
 
-  deleteRoom(roomId: number) {
+  deleteRoomByRoomId(roomId: number) {
     this.rooms = this.rooms.filter((room) => room.roomId !== roomId);
+  }
+
+  deleteRoomByWsId(wsId: number) {
+    this.rooms = this.rooms.filter((room) => room.createdByWsId !== wsId);
   }
 }

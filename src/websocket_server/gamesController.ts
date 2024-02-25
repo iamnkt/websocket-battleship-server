@@ -4,7 +4,7 @@ export default class GamesController {
   games: Game[];
 
   constructor() {
-    this.games = []
+    this.games = [];
   }
 
   addGame(game: Game) {

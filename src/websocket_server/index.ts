@@ -1,4 +1,3 @@
-import { constants } from 'buffer';
 import ws, { WebSocket } from 'ws';
 import Game from './game';
 import GamesController from './gamesController';
@@ -15,7 +14,7 @@ declare module 'ws' {
 }
 
 const connections = new Set<Connection>();
-const roomsController = new RoomsController(connections);
+const roomsController = new RoomsController();
 const gamesController = new GamesController();
 const players: Player[] = [];
 const winners: Winner[] = [];
@@ -113,7 +112,7 @@ const connectionHandler = (ws: WebSocket) => {
             id = connection.player.playerId;
           }
         });
-        const room = new Room(roomIdx, name, id);
+        const room = new Room(roomIdx, ws.id, name, id);
         roomsController.addRoom(room);
         connections.forEach((connection) => {
           connection.ws.send(msgFromWSSHandler('update_room', roomsController.rooms));
@@ -140,7 +139,7 @@ const connectionHandler = (ws: WebSocket) => {
         if (roomsController.rooms.find((room) => room.roomUsers[0].playerId === id)) {
           const rooomToDeleteId = roomsController.rooms.find((room) => room.roomUsers[0].playerId === id)!.roomId;
 
-          roomsController.deleteRoom(rooomToDeleteId);
+          roomsController.deleteRoomByRoomId(rooomToDeleteId);
         }
 
         roomsController.addUser(roomId, name, id);
@@ -305,20 +304,22 @@ const connectionHandler = (ws: WebSocket) => {
             });
             currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex === attackedId)[0].killEnemyShipsCount += 1;
             if (currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex === attackedId)[0].killEnemyShipsCount === 10) {
-              const winnerName = players.find((player) => player.playerId === attackedId)?.username as string;
+              const winnerName = players.find((player) => player.playerId === attackerId)?.username as string;
 
               if (winners.find((winner) => winner.name === winnerName)) {
                 winners.filter((winner) => winner.name === winnerName)[0].wins += 1;
               } else {
-                winners.push({ name: winnerName, wins: 1});
+                winners.push({ name: winnerName, wins: 1 });
               }
 
+              winners.sort((winner1: Winner, winner2: Winner) => winner2.wins - winner1.wins);
+
               connections.forEach((connection) => {
+                connection.ws.send(msgFromWSSHandler('update_winners', winners));
+
                 if (connection.player.playerId === attackerId || connection.player.playerId === attackedId) {
                   connection.ws.send(msgFromWSSHandler('finish', { winPlayer: attackerId }));
-                  connection.ws.send(msgFromWSSHandler('update_winners', winners));
-                  roomsController.deleteRoom(currentGame.roomId);
-                  console.log(roomsController.rooms);
+                  roomsController.deleteRoomByRoomId(currentGame.roomId);
                 }
               });
             }
@@ -329,7 +330,19 @@ const connectionHandler = (ws: WebSocket) => {
     }
   });
 
-  ws.on('close', () => {});
+  ws.on('close', () => {
+    connections.forEach((connection) => {
+      if (connection.ws.id === ws.id) {
+        connections.delete(connection);
+      }
+    });
+
+    roomsController.deleteRoomByWsId(ws.id);
+
+    connections.forEach((connection) => {
+      connection.ws.send(msgFromWSSHandler('update_room', roomsController.rooms));
+    });
+  });
 };
 
 export { connectionHandler };
