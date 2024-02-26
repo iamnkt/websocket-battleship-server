@@ -187,14 +187,14 @@ const connectionHandler = (ws: WebSocket) => {
           connections.forEach((connection) => {
             if (!connection.bot && connection.player.playerId === game.gameBoards[0].currentPlayerIndex) {
               connection.ws.send(
-                msgFromWSSHandler('start_game', { ships: game.gameBoards[0].ships, currentPlayerIndex: game.gameBoards[0].currentPlayerIndex })
+                msgFromWSSHandler('start_game', { ships: game.gameBoards[0].ships, currentPlayerIndex: game.gameBoards[0].currentPlayerIndex }),
               );
               connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[0].currentPlayerIndex }));
             }
 
             if (!connection.bot && connection.player.playerId === game.gameBoards[1].currentPlayerIndex) {
               connection.ws.send(
-                msgFromWSSHandler('start_game', { ships: game.gameBoards[1].ships, currentPlayerIndex: game.gameBoards[1].currentPlayerIndex })
+                msgFromWSSHandler('start_game', { ships: game.gameBoards[1].ships, currentPlayerIndex: game.gameBoards[1].currentPlayerIndex }),
               );
               connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[0].currentPlayerIndex }));
             }
@@ -202,7 +202,7 @@ const connectionHandler = (ws: WebSocket) => {
             if (connection.bot && connection.player.playerId === game.gameBoards[1].currentPlayerIndex) {
               game.setTurn(game.gameBoards[1].currentPlayerIndex);
               connection.ws.send(
-                msgFromWSSHandler('start_game', { ships: game.gameBoards[1].ships, currentPlayerIndex: game.gameBoards[1].currentPlayerIndex })
+                msgFromWSSHandler('start_game', { ships: game.gameBoards[1].ships, currentPlayerIndex: game.gameBoards[1].currentPlayerIndex }),
               );
               connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[1].currentPlayerIndex }));
               connection.bot.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[1].currentPlayerIndex }));
@@ -227,7 +227,7 @@ const connectionHandler = (ws: WebSocket) => {
         const bot = new Bot('Bot', '', botId);
         playerIdx += 1;
         players.push(bot);
-        
+
         connections.forEach((connection) => {
           if (ws.id === connection.ws.id) {
             name = connection.player.username;
@@ -250,7 +250,7 @@ const connectionHandler = (ws: WebSocket) => {
           idGame: gameIdx,
           idPlayer: id,
         };
-        
+
         const gameBotData = {
           idGame: gameIdx,
           idPlayer: botId,
@@ -261,7 +261,7 @@ const connectionHandler = (ws: WebSocket) => {
         const gameId = gameIdx;
         gameIdx += 1;
 
-        const game = new Game(gameId, roomId)
+        const game = new Game(gameId, roomId);
         gamesController.addGame(game);
 
         bot.on('message', (message: string) => {
@@ -281,16 +281,16 @@ const connectionHandler = (ws: WebSocket) => {
               if (connection.bot && connection.bot.playerId === msgData) {
                 delete connection.bot;
               }
-            })
+            });
           }
         });
-        
+
         connections.forEach((connection) => {
           if (connection.player.playerId === id) {
             connection.ws.send(msgFromWSSHandler('create_game', gameUserData));
             bot.send(msgFromWSSHandler('create_game', gameBotData));
           }
-        });        
+        });
 
         break;
       }
@@ -315,7 +315,9 @@ const connectionHandler = (ws: WebSocket) => {
 
     if (gamesController.games.length > 0) {
       try {
-        game = gamesController.games.find((game) => game.gameBoards[0]?.currentPlayerIndex === playerId || game.gameBoards[1]?.currentPlayerIndex === playerId);
+        game = gamesController.games.find(
+          (game) => game.gameBoards[0]?.currentPlayerIndex === playerId || game.gameBoards[1]?.currentPlayerIndex === playerId,
+        );
       } catch {
         game = gamesController.games.find((game) => game.currentTurn === -1);
         const gameId = game!.gameId;
@@ -345,7 +347,7 @@ const connectionHandler = (ws: WebSocket) => {
       });
 
       gamesController.deleteGame(gameId);
-    };
+    }
 
     roomsController.deleteRoomByWsId(ws.id);
 

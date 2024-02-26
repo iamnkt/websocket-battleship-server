@@ -19,16 +19,24 @@ export default class GamesController {
     this.games = this.games.filter((game) => game.gameId !== gameId);
   }
 
-  attack(gameId: number, attackerId: number, msgType: string, msgData: { gameId: number, x: number, y: number, indexPlayer: number }, connections: Set<Connection>, winners: Winner[], players: Player[]) {
+  attack(
+    gameId: number,
+    attackerId: number,
+    msgType: string,
+    msgData: { gameId: number; x: number; y: number; indexPlayer: number },
+    connections: Set<Connection>,
+    winners: Winner[],
+    players: Player[],
+  ) {
     let x: number;
     let y: number;
     let pos: string;
-    let currentGame = this.games.find((game) => game.gameId === gameId) as unknown as Game;
-    let currentGameId = currentGame.gameId;
-    let attackedId = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].currentPlayerIndex;
-    let attackedShips = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].ships;
-    let openCells = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].openPositions;
-    let remainingCells = currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions;
+    const currentGame = this.games.find((game) => game.gameId === gameId) as unknown as Game;
+    const currentGameId = currentGame.gameId;
+    const attackedId = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].currentPlayerIndex;
+    const attackedShips = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].ships;
+    const openCells = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].openPositions;
+    const remainingCells = currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions;
 
     if (msgType === 'attack') {
       x = msgData.x;
@@ -126,8 +134,9 @@ export default class GamesController {
               const y = Number(pos[1]);
               connection.ws.send(msgFromWSSHandler('attack', { position: { x: x, y: y }, currentPlayer: attackerId, status: 'miss' }));
             });
-            currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions =
-              remainingCells.filter((cell) => !openCells.includes(cell));
+            currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions = remainingCells.filter(
+              (cell) => !openCells.includes(cell),
+            );
             connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: attackerId }));
             currentGame!.setTurn(attackerId);
           }
@@ -147,8 +156,9 @@ export default class GamesController {
               connection.ws.send(msgFromWSSHandler('attack', { position: { x: x, y: y }, currentPlayer: attackerId, status: 'miss' }));
               connection.bot?.send(msgFromWSSHandler('attack', { position: { x: x, y: y }, currentPlayer: attackerId, status: 'miss' }));
             });
-            currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions =
-              remainingCells.filter((cell) => !openCells.includes(cell));
+            currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions = remainingCells.filter(
+              (cell) => !openCells.includes(cell),
+            );
             connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: attackerId }));
             connection.bot.send(msgFromWSSHandler('turn', { currentPlayer: attackerId }));
             currentGame!.setTurn(attackerId);

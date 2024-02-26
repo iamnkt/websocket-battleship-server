@@ -1,4 +1,4 @@
-import { Ship, ShipType, Winner } from "./interfaces";
+import { Ship, ShipType, Winner } from './interfaces';
 
 export const startPositions = [
   '00',
@@ -119,7 +119,7 @@ const updateWinners = (winners: Winner[], winnerName: string): Winner[] => {
   }
 
   winners.sort((winner1: Winner, winner2: Winner) => winner2.wins - winner1.wins);
-  
+
   return winners;
 };
 
@@ -143,8 +143,8 @@ const makeHuge = (direction: boolean, posX: number[], posY: number[]) => {
     randomPosY = posY[randomY];
   }
 
-  return {x: randomPosX, y: randomPosY}
-}
+  return { x: randomPosX, y: randomPosY };
+};
 
 const makeLarge = (direction: boolean, posX: number[], posY: number[]) => {
   let randomX: number;
@@ -166,8 +166,8 @@ const makeLarge = (direction: boolean, posX: number[], posY: number[]) => {
     randomPosY = posY[randomY];
   }
 
-  return {x: randomPosX, y: randomPosY}
-}
+  return { x: randomPosX, y: randomPosY };
+};
 
 const makeMedium = (direction: boolean, posX: number[], posY: number[]) => {
   let randomX: number;
@@ -189,25 +189,20 @@ const makeMedium = (direction: boolean, posX: number[], posY: number[]) => {
     randomPosY = posY[randomY];
   }
 
-  return {x: randomPosX, y: randomPosY}
-}
+  return { x: randomPosX, y: randomPosY };
+};
 
 const makeSmall = (posX: number[], posY: number[]) => {
-  let randomX: number;
-  let randomY: number;
-  let randomPosX: number;
-  let randomPosY: number;
+  const randomX = Math.floor(Math.random() * posX.length);
+  const randomPosX = posX[randomX];
 
-  randomX = Math.floor(Math.random() * posX.length);
-  randomPosX = posX[randomX];
+  const randomY = Math.floor(Math.random() * posY.length);
+  const randomPosY = posY[randomY];
 
-  randomY = Math.floor(Math.random() * posY.length);
-  randomPosY = posY[randomY];
+  return { x: randomPosX, y: randomPosY };
+};
 
-  return {x: randomPosX, y: randomPosY}
-}
-
-const checkForPositions = (type: string, direction: boolean, cells: string[], position: {x: number, y: number}): boolean => {
+const checkForPositions = (type: string, direction: boolean, cells: string[], position: { x: number; y: number }): boolean => {
   let flag = 0;
 
   switch (type) {
@@ -220,7 +215,7 @@ const checkForPositions = (type: string, direction: boolean, cells: string[], po
           }
         }
 
-        return (flag === 3) ? true : false;
+        return flag === 3 ? true : false;
       } else {
         for (let i = position.x; i <= position.x + 2; i += 1) {
           const posString = '' + i + position.y;
@@ -229,7 +224,7 @@ const checkForPositions = (type: string, direction: boolean, cells: string[], po
           }
         }
 
-        return (flag === 3) ? true : false;
+        return flag === 3 ? true : false;
       }
 
     case 'medium':
@@ -241,7 +236,7 @@ const checkForPositions = (type: string, direction: boolean, cells: string[], po
           }
         }
 
-        return (flag === 2) ? true : false;
+        return flag === 2 ? true : false;
       } else {
         for (let i = position.x; i <= position.x + 1; i += 1) {
           const posString = '' + i + position.y;
@@ -250,21 +245,22 @@ const checkForPositions = (type: string, direction: boolean, cells: string[], po
           }
         }
 
-        return (flag === 2) ? true : false;
+        return flag === 2 ? true : false;
       }
 
-    case 'small':
+    case 'small': {
       const posString = '' + position.x + position.y;
       if (cells.includes(posString)) {
         flag += 1;
       }
 
-      return (flag === 1) ? true : false;
+      return flag === 1 ? true : false;
+    }
 
     default:
       return false;
   }
-}
+};
 
 const makeBotShips = (): Ship[] => {
   let cells = [...startPositions];
@@ -279,7 +275,7 @@ const makeBotShips = (): Ship[] => {
     const randomDirection = Math.floor(Math.random() * directions.length);
     const direction = directions[randomDirection];
     let length = 0;
-    let position: { x: number; y: number } = {x: -1, y: -1};
+    let position: { x: number; y: number } = { x: -1, y: -1 };
 
     switch (type) {
       case 'huge':
@@ -316,7 +312,7 @@ const makeBotShips = (): Ship[] => {
             return cell !== '' + i + j;
           });
         }
-      } 
+      }
     } else {
       for (let i = position.x - 1; i <= position.x + length; i += 1) {
         for (let j = position.y - 1; j <= position.y + 1; j += 1) {
@@ -324,7 +320,7 @@ const makeBotShips = (): Ship[] => {
             return cell !== '' + i + j;
           });
         }
-      } 
+      }
     }
 
     ships.push({
@@ -337,6 +333,6 @@ const makeBotShips = (): Ship[] => {
   });
 
   return ships;
-}
+};
 
 export { msgFromWSSHandler, updateWinners, makeBotShips };
