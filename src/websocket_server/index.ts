@@ -300,7 +300,7 @@ const connectionHandler = (ws: WebSocket) => {
   ws.on('close', () => {
     let playerId: number;
     let game: Game | undefined;
-
+    
     connections.forEach((connection) => {
       if (connection.ws.id === ws.id) {
         playerId = connection.player.playerId;
