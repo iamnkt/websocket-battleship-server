@@ -8,4 +8,6 @@ export default class Player {
     this.password = password;
     this.playerId = playerId;
   }
+
+
 }

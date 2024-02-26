@@ -1,11 +1,12 @@
 import ws, { WebSocket } from 'ws';
+import { Bot } from './bot';
 import Game from './game';
 import GamesController from './gamesController';
 import { Connection, Ship, Winner } from './interfaces';
 import Player from './player';
 import Room from './room';
 import RoomsController from './roomsController';
-import { msgFromWSSHandler } from './util';
+import { msgFromWSSHandler, updateWinners } from './util';
 
 declare module 'ws' {
   export interface WebSocket extends ws {
@@ -14,10 +15,10 @@ declare module 'ws' {
 }
 
 const connections = new Set<Connection>();
-const roomsController = new RoomsController();
+export const roomsController = new RoomsController();
 const gamesController = new GamesController();
 const players: Player[] = [];
-const winners: Winner[] = [];
+let winners: Winner[] = [];
 
 let wsIdx = 0;
 let playerIdx = 0;
@@ -39,15 +40,6 @@ const connectionHandler = (ws: WebSocket) => {
     let id = -1;
     let currentGameId: number;
     let attackerId: number;
-    let currentGame: Game;
-    let attackedId: number;
-    let attackedShips: Ship[];
-    let attackedPos: Ship[];
-    let openCells: string[];
-    let remainingCells: string[];
-    let x: number;
-    let y: number;
-    let pos: string;
     let player: Player;
 
     switch (msgType) {
@@ -164,7 +156,8 @@ const connectionHandler = (ws: WebSocket) => {
           }
         });
 
-        gamesController.addGame(new Game(gameIdx, roomId));
+        const gameId = gameIdx;
+        gamesController.addGame(new Game(gameId, roomId));
         const roomsUpdated = roomsController.rooms.filter((room) => room.roomId !== roomId);
         roomsController.rooms = roomsUpdated;
 
@@ -188,21 +181,31 @@ const connectionHandler = (ws: WebSocket) => {
 
         const game = gamesController.games.find((game) => game.gameId === gameId);
         game!.addShips(playerId, ships);
+
         if (game?.gameBoards.length === 2) {
           game.setTurn(game.gameBoards[0].currentPlayerIndex);
           connections.forEach((connection) => {
-            if (connection.player.playerId === game.gameBoards[0].currentPlayerIndex) {
+            if (!connection.bot && connection.player.playerId === game.gameBoards[0].currentPlayerIndex) {
               connection.ws.send(
-                msgFromWSSHandler('start_game', { ships: game.gameBoards[0].ships, currentPlayerIndex: game.gameBoards[0].currentPlayerIndex }),
+                msgFromWSSHandler('start_game', { ships: game.gameBoards[0].ships, currentPlayerIndex: game.gameBoards[0].currentPlayerIndex })
               );
               connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[0].currentPlayerIndex }));
             }
 
-            if (connection.player.playerId === game.gameBoards[1].currentPlayerIndex) {
+            if (!connection.bot && connection.player.playerId === game.gameBoards[1].currentPlayerIndex) {
               connection.ws.send(
-                msgFromWSSHandler('start_game', { ships: game.gameBoards[1].ships, currentPlayerIndex: game.gameBoards[1].currentPlayerIndex }),
+                msgFromWSSHandler('start_game', { ships: game.gameBoards[1].ships, currentPlayerIndex: game.gameBoards[1].currentPlayerIndex })
               );
               connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[0].currentPlayerIndex }));
+            }
+
+            if (connection.bot && connection.player.playerId === game.gameBoards[1].currentPlayerIndex) {
+              game.setTurn(game.gameBoards[1].currentPlayerIndex);
+              connection.ws.send(
+                msgFromWSSHandler('start_game', { ships: game.gameBoards[1].ships, currentPlayerIndex: game.gameBoards[1].currentPlayerIndex })
+              );
+              connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[1].currentPlayerIndex }));
+              connection.bot.send(msgFromWSSHandler('turn', { currentPlayer: game.gameBoards[1].currentPlayerIndex }));
             }
           });
           game.gameBoards[0].ships = game.completeShips(game.gameBoards[0].ships);
@@ -215,127 +218,134 @@ const connectionHandler = (ws: WebSocket) => {
       case 'randomAttack': {
         currentGameId = msgData.gameId;
         attackerId = msgData.indexPlayer;
-        currentGame = gamesController.games.find((game) => game.gameId === currentGameId) as unknown as Game;
-        attackedId = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].currentPlayerIndex;
-        attackedShips = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].ships;
-        openCells = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].openPositions;
-        remainingCells = currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions;
+        gamesController.attack(currentGameId, attackerId, msgType, msgData, connections, winners, players);
+        break;
+      }
 
-        if (msgType === 'attack') {
-          x = msgData.x;
-          y = msgData.y;
-          pos = '' + x + y;
-        } else {
-          const randomCell = Math.floor(Math.random() * remainingCells.length);
-          pos = remainingCells[randomCell];
-          x = +pos[0];
-          y = +pos[1];
-        }
-
-        attackedPos = attackedShips.filter((ship) => Object.values(ship.position).join('') === pos);
-
-        if (attackerId !== currentGame!.currentTurn) {
-          return;
-        }
-
-        if (openCells.includes(pos)) {
-          const currentTurn = currentGame.currentTurn;
-          const turnReceiver = currentGame.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== currentTurn)[0].currentPlayerIndex;
-          connections.forEach((connection) => {
-            if (connection.player.playerId === attackerId || connection.player.playerId === attackedId) {
-              connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: turnReceiver }));
-              currentGame!.setTurn(turnReceiver);
-            }
-          });
-          return;
-        }
-
-        if (attackedPos.length === 0) {
-          openCells.push(pos);
-          currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions = remainingCells.filter(
-            (cell) => !openCells.includes(cell),
-          );
-          connections.forEach((connection) => {
-            if (connection.player.playerId === attackerId || connection.player.playerId === attackedId) {
-              connection.ws.send(msgFromWSSHandler('attack', { position: { x: x, y: y }, currentPlayer: attackerId, status: 'miss' }));
-              connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: attackedId }));
-              currentGame!.setTurn(attackedId);
-            }
-          });
-        } else {
-          const result = currentGame!.removeHP(attackedId, pos);
-          if (result === 'shot') {
-            openCells.push(pos);
-            currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions = remainingCells.filter(
-              (cell) => !openCells.includes(cell),
-            );
-            connections.forEach((connection) => {
-              if (connection.player.playerId === attackerId || connection.player.playerId === attackedId) {
-                connection.ws.send(msgFromWSSHandler('attack', { position: { x: x, y: y }, currentPlayer: attackerId, status: 'shot' }));
-                connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: attackerId }));
-                currentGame!.setTurn(attackerId);
-              }
-            });
-          } else {
-            const missPositions = currentGame!.checkForMissPositions(attackedId, pos);
-            openCells.push(pos);
-            currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions = remainingCells.filter(
-              (cell) => !openCells.includes(cell),
-            );
-            connections.forEach((connection) => {
-              if (connection.player.playerId === attackerId || connection.player.playerId === attackedId) {
-                const killedShip = attackedShips.filter((ship) => ship.shipId === attackedPos[0].shipId);
-                killedShip.forEach((ship) => {
-                  const x = ship.position.x;
-                  const y = ship.position.y;
-                  connection.ws.send(msgFromWSSHandler('attack', { position: { x: x, y: y }, currentPlayer: attackerId, status: 'killed' }));
-                });
-                missPositions.forEach((pos) => {
-                  openCells.push(pos);
-                  const x = Number(pos[0]);
-                  const y = Number(pos[1]);
-                  connection.ws.send(msgFromWSSHandler('attack', { position: { x: x, y: y }, currentPlayer: attackerId, status: 'miss' }));
-                });
-                currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== attackerId)[0].remainingPositions =
-                  remainingCells.filter((cell) => !openCells.includes(cell));
-                connection.ws.send(msgFromWSSHandler('turn', { currentPlayer: attackerId }));
-                currentGame!.setTurn(attackerId);
-              }
-            });
-            currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex === attackedId)[0].killEnemyShipsCount += 1;
-            if (currentGame!.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex === attackedId)[0].killEnemyShipsCount === 10) {
-              const winnerName = players.find((player) => player.playerId === attackerId)?.username as string;
-
-              if (winners.find((winner) => winner.name === winnerName)) {
-                winners.filter((winner) => winner.name === winnerName)[0].wins += 1;
-              } else {
-                winners.push({ name: winnerName, wins: 1 });
-              }
-
-              winners.sort((winner1: Winner, winner2: Winner) => winner2.wins - winner1.wins);
-
-              connections.forEach((connection) => {
-                connection.ws.send(msgFromWSSHandler('update_winners', winners));
-
-                if (connection.player.playerId === attackerId || connection.player.playerId === attackedId) {
-                  connection.ws.send(msgFromWSSHandler('finish', { winPlayer: attackerId }));
-                  roomsController.deleteRoomByRoomId(currentGame.roomId);
-                }
-              });
-            }
+      case 'single_play': {
+        const botId = playerIdx;
+        const bot = new Bot('Bot', '', botId);
+        playerIdx += 1;
+        players.push(bot);
+        
+        connections.forEach((connection) => {
+          if (ws.id === connection.ws.id) {
+            name = connection.player.username;
+            id = connection.player.playerId;
+            connection.bot = bot;
           }
+        });
+
+        if (roomsController.rooms.find((room) => room.roomUsers[0].playerId === id)) {
+          const rooomToDeleteId = roomsController.rooms.find((room) => room.roomUsers[0].playerId === id)!.roomId;
+
+          roomsController.deleteRoomByRoomId(rooomToDeleteId);
         }
+
+        connections.forEach((connection) => {
+          connection.ws.send(msgFromWSSHandler('update_room', roomsController.rooms));
+        });
+
+        const gameUserData = {
+          idGame: gameIdx,
+          idPlayer: id,
+        };
+        
+        const gameBotData = {
+          idGame: gameIdx,
+          idPlayer: botId,
+        };
+
+        const roomId = roomIdx;
+        roomIdx += 1;
+        const gameId = gameIdx;
+        gameIdx += 1;
+
+        const game = new Game(gameId, roomId)
+        gamesController.addGame(game);
+
+        bot.on('message', (message: string) => {
+          const { type, data } = JSON.parse(message);
+          if (type === 'add_ships') {
+            const shipsData = JSON.parse(data);
+            const ships = shipsData.ships;
+            game.addShips(botId, ships);
+          }
+          if (type === 'attack') {
+            const msgData = JSON.parse(data);
+            gamesController.attack(gameId, botId, type, msgData, connections, winners, players);
+          }
+          if (type === 'delete_bot') {
+            const msgData = JSON.parse(data);
+            connections.forEach((connection) => {
+              if (connection.bot && connection.bot.playerId === msgData) {
+                delete connection.bot;
+              }
+            })
+          }
+        });
+        
+        connections.forEach((connection) => {
+          if (connection.player.playerId === id) {
+            connection.ws.send(msgFromWSSHandler('create_game', gameUserData));
+            bot.send(msgFromWSSHandler('create_game', gameBotData));
+          }
+        });        
+
         break;
       }
     }
   });
 
   ws.on('close', () => {
+    let playerId: number;
+    let game: Game | undefined;
+
+    connections.forEach((connection) => {
+      if (connection.ws.id === ws.id) {
+        playerId = connection.player.playerId;
+      }
+    });
+
     connections.forEach((connection) => {
       if (connection.ws.id === ws.id) {
         connections.delete(connection);
       }
     });
+
+    if (gamesController.games.length > 0) {
+      try {
+        game = gamesController.games.find((game) => game.gameBoards[0]?.currentPlayerIndex === playerId || game.gameBoards[1]?.currentPlayerIndex === playerId);
+      } catch {
+        game = gamesController.games.find((game) => game.currentTurn === -1);
+        const gameId = game!.gameId;
+        gamesController.deleteGame(gameId);
+      }
+    }
+
+    if (game) {
+      const gameId = game.gameId;
+      const winPlayerId = game.gameBoards.filter((gameboard) => gameboard.currentPlayerIndex !== playerId)[0].currentPlayerIndex;
+      let winPlayerName = '';
+
+      players.forEach((player) => {
+        if (player.playerId === winPlayerId) {
+          winPlayerName = player.username;
+        }
+      });
+
+      winners = updateWinners(winners, winPlayerName);
+
+      connections.forEach((connection) => {
+        connection.ws.send(msgFromWSSHandler('update_winners', winners));
+
+        if (connection.player.playerId === winPlayerId) {
+          connection.ws.send(msgFromWSSHandler('finish', { winPlayer: winPlayerId }));
+        }
+      });
+
+      gamesController.deleteGame(gameId);
+    };
 
     roomsController.deleteRoomByWsId(ws.id);
 

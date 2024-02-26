@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws';
+import { Bot } from './bot';
 import Player from './player';
 
 export interface RoomPlayer {
@@ -9,6 +10,7 @@ export interface RoomPlayer {
 export interface Connection {
   player: Player;
   ws: WebSocket;
+  bot?: Bot;
 }
 
 export interface Winner {
@@ -23,9 +25,11 @@ export interface Ship {
   };
   direction: boolean;
   length: number;
-  type: 'small' | 'medium' | 'large' | 'huge';
+  type: ShipType;
   shipId: number;
 }
+
+export type ShipType = 'small' | 'medium' | 'large' | 'huge';
 
 export type Gameboard = {
   currentPlayerIndex: number;
